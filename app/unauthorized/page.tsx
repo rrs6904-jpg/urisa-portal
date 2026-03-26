@@ -1,167 +1,406 @@
-import Link from 'next/link'
-import type { Metadata } from 'next'
-import type { AuthErrorCode } from '@/types/auth'
+import { getDashboardData } from '../../lib/data/dashboard'
+import {
+  formatCurrencyMXN,
+  formatCurrencyUSD,
+  formatFx,
+  formatNumber,
+  formatPercent,
+} from '../../lib/format/dashboard'
 
-export const metadata: Metadata = {
-  title: 'Acceso no autorizado | URISA Dashboard',
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center bg-[#1F6AA5] px-4 py-1.5 text-white">
+      <h2 className="text-base font-bold uppercase tracking-wide">{title}</h2>
+    </div>
+  )
 }
 
-interface ReasonContent {
-  title: string
-  description: string
-  showContactAdmin: boolean
-  showLoginButton: boolean
-  showDashboardButton: boolean
+function LabelCell({
+  label,
+  sublabel,
+  tone = 'default',
+}: {
+  label: string
+  sublabel?: string
+  tone?: 'default' | 'inventory'
+}) {
+  return (
+    <div
+      className={[
+        'border-r border-b border-slate-300 px-3 py-1.5 text-[12px] leading-tight text-slate-700',
+        tone === 'inventory' ? 'bg-[#E7F0D5]' : 'bg-[#F3F4F6]',
+      ].join(' ')}
+    >
+      <div className="font-semibold">{label}</div>
+      {sublabel ? (
+        <div className="mt-0.5 text-[11px] italic text-slate-500">{sublabel}</div>
+      ) : null}
+    </div>
+  )
 }
 
-const REASON_CONTENT: Record<AuthErrorCode, ReasonContent> = {
-  'no-profile': {
-    title: 'Perfil no encontrado',
-    description:
-      'Tu cuenta no tiene un perfil configurado en el sistema. Esto puede deberse a un error durante la creación de la cuenta.',
-    showContactAdmin: true,
-    showLoginButton: false,
-    showDashboardButton: false,
-  },
-  inactive: {
-    title: 'Cuenta desactivada',
-    description:
-      'Tu cuenta fue desactivada por un administrador. Si necesitas reactivarla, comunícate con el equipo de soporte.',
-    showContactAdmin: true,
-    showLoginButton: false,
-    showDashboardButton: false,
-  },
-  'no-permissions': {
-    title: 'Sin permisos para este módulo',
-    description:
-      'Tu rol no incluye acceso a este módulo. Si necesitas acceso, solicítalo al administrador del sistema.',
-    showContactAdmin: true,
-    showLoginButton: false,
-    showDashboardButton: true,
-  },
-  unauthorized: {
-    title: 'Acceso no autorizado',
-    description:
-      'No tienes permiso para acceder a esta sección. Si crees que es un error, contacta al administrador.',
-    showContactAdmin: false,
-    showLoginButton: false,
-    showDashboardButton: true,
-  },
-  'session-expired': {
-    title: 'Sesión expirada',
-    description:
-      'Tu sesión expiró por inactividad. Inicia sesión nuevamente para continuar.',
-    showContactAdmin: false,
-    showLoginButton: true,
-    showDashboardButton: false,
-  },
+function ValueCell({
+  value,
+  tone = 'default',
+  emphasis = false,
+}: {
+  value: string
+  tone?: 'default' | 'inventory'
+  emphasis?: boolean
+}) {
+  return (
+    <div
+      className={[
+        'border-r border-b border-[#4B89C8] px-3 py-1.5 text-center',
+        tone === 'inventory' ? 'bg-[#EDF5DD]' : 'bg-white',
+      ].join(' ')}
+    >
+      <div
+        className={[
+          'font-bold text-[#135A9C]',
+          emphasis ? 'text-[18px]' : 'text-[16px]',
+        ].join(' ')}
+      >
+        {value}
+      </div>
+    </div>
+  )
 }
 
-const DEFAULT_CONTENT: ReasonContent = {
-  title: 'Acceso denegado',
-  description: 'No tienes autorización para ver esta página.',
-  showContactAdmin: false,
-  showLoginButton: false,
-  showDashboardButton: true,
+function PairRow({
+  label,
+  value,
+  sublabel,
+  tone = 'default',
+  emphasis = false,
+}: {
+  label: string
+  value: string
+  sublabel?: string
+  tone?: 'default' | 'inventory'
+  emphasis?: boolean
+}) {
+  return (
+    <>
+      <LabelCell label={label} sublabel={sublabel} tone={tone} />
+      <ValueCell value={value} tone={tone} emphasis={emphasis} />
+    </>
+  )
 }
 
-interface UnauthorizedPageProps {
-  searchParams: Promise<{
-    reason?: string
-    module?: string
+function VerticalMetricGroup({
+  items,
+  tone = 'default',
+}: {
+  items: Array<{
+    label: string
+    value: string
+    sublabel?: string
+    emphasis?: boolean
   }>
+  tone?: 'default' | 'inventory'
+}) {
+  return (
+    <div className="grid grid-cols-[1fr_165px] border-l border-t border-slate-300">
+      {items.map((item) => (
+        <PairRow
+          key={item.label}
+          label={item.label}
+          value={item.value}
+          sublabel={item.sublabel}
+          tone={tone}
+          emphasis={item.emphasis}
+        />
+      ))}
+    </div>
+  )
 }
 
-export default async function UnauthorizedPage({
-  searchParams,
-}: UnauthorizedPageProps) {
-  const { reason, module: moduleName } = await searchParams
+function TopInfoBar({
+  lastUpdate,
+  fx,
+}: {
+  lastUpdate: string
+  fx: string
+}) {
+  return (
+    <div className="grid grid-cols-2 bg-[#305E97] px-4 py-2 text-white">
+      <div className="text-sm font-semibold">Last Update: {lastUpdate}</div>
+      <div className="text-center text-sm font-semibold">FX MXN/USD: {fx}</div>
+    </div>
+  )
+}
 
-  const content =
-    reason && Object.prototype.hasOwnProperty.call(REASON_CONTENT, reason)
-      ? REASON_CONTENT[reason as AuthErrorCode]
-      : DEFAULT_CONTENT
+export default async function DashboardPage() {
+  const data = await getDashboardData()
 
-  const hasPrimaryAction =
-    content.showDashboardButton || content.showLoginButton
+  const productionLeft = [
+    {
+      label: 'Daily Target',
+      value: formatNumber(data.daily_production_target),
+      emphasis: true,
+    },
+    {
+      label: 'Production Yesterday',
+      value: formatNumber(data.units_yesterday),
+      sublabel: '(Completed)',
+      emphasis: true,
+    },
+    {
+      label: 'Achievement % Day',
+      value: '—',
+      emphasis: true,
+    },
+    {
+      label: 'In Progress',
+      value: formatNumber(data.units_in_progress),
+      emphasis: true,
+    },
+    {
+      label: 'Workdays MTD',
+      value: formatNumber(data.workdays_mtd),
+      emphasis: true,
+    },
+  ]
+
+  const productionMiddle = [
+    {
+      label: 'Target MTD',
+      value: formatNumber(data.prod_target_mtd),
+      emphasis: true,
+    },
+    {
+      label: 'Production MTD',
+      value: formatNumber(data.units_mtd),
+      emphasis: true,
+    },
+    {
+      label: 'MTD Achievement %',
+      value: formatPercent(data.prod_achievement_mtd),
+      emphasis: true,
+    },
+  ]
+
+  const productionRight = [
+    {
+      label: 'Target YTD',
+      value: formatNumber(data.prod_target_ytd),
+      emphasis: true,
+    },
+    {
+      label: 'Production YTD',
+      value: formatNumber(data.units_ytd),
+      emphasis: true,
+    },
+    {
+      label: 'YTD Achievement %',
+      value: formatPercent(data.prod_achievement_ytd),
+      emphasis: true,
+    },
+    {
+      label: 'Workdays YTD',
+      value: formatNumber(data.workdays_ytd),
+      emphasis: true,
+    },
+  ]
+
+  const salesLeft = [
+    {
+      label: 'Sales Yesterday MXN',
+      value: '—',
+      emphasis: true,
+    },
+    {
+      label: 'in USD:',
+      value: '—',
+      emphasis: true,
+    },
+    {
+      label: '% Export',
+      value: '—',
+      emphasis: true,
+    },
+  ]
+
+  const salesMiddle = [
+    {
+      label: 'Sales MTD MXN',
+      value: formatCurrencyMXN(data.sales_mtd_mxn),
+      emphasis: true,
+    },
+    {
+      label: 'in USD:',
+      value: '—',
+      emphasis: true,
+    },
+    {
+      label: 'of YTD Total',
+      value: '—',
+      emphasis: true,
+    },
+  ]
+
+  const salesRight = [
+    {
+      label: 'Sales YTD MXN',
+      value: formatCurrencyMXN(data.sales_ytd_mxn),
+      emphasis: true,
+    },
+    {
+      label: 'in USD:',
+      value: '—',
+      emphasis: true,
+    },
+    {
+      label: '% Domestic',
+      value: '—',
+      emphasis: true,
+    },
+  ]
+
+  const inventoryTop = [
+    {
+      label: 'Import Raw Material MXN',
+      value: formatCurrencyMXN(data.raw_import_mxn),
+      sublabel: 'Imported materials (Finance)',
+    },
+    {
+      label: 'Domestic Raw Material MXN',
+      value: formatCurrencyMXN(data.raw_domestic_mxn),
+      sublabel: 'Domestic materials (Finance)',
+    },
+    {
+      label: 'Related Party Raw Material MXN',
+      value: formatCurrencyMXN(data.raw_related_mxn),
+      sublabel: 'Related party materials (Finance)',
+    },
+  ]
+
+  const inventoryBottom = [
+    {
+      label: 'Domestic Inventory Available',
+      value: formatNumber(data.fg_units_domestic),
+      sublabel: 'Finished goods available — Domestic channel',
+    },
+    {
+      label: 'Export Inventory Available',
+      value: formatNumber(data.fg_units_export),
+      sublabel: 'Finished goods available — Export channel',
+    },
+  ]
+
+  const financialLeft = [
+    {
+      label: 'Cash MXN',
+      value: formatCurrencyMXN(data.cash_mxn),
+      emphasis: true,
+    },
+    {
+      label: 'AR Domestic MXN',
+      value: formatCurrencyMXN(data.ar_domestic_mxn),
+      emphasis: true,
+    },
+    {
+      label: 'AR Export MXN',
+      value: formatCurrencyMXN(data.ar_export_mxn),
+      emphasis: true,
+    },
+  ]
+
+  const financialMiddle = [
+    {
+      label: 'Cash USD',
+      value: formatCurrencyUSD(data.cash_usd),
+      emphasis: true,
+    },
+    {
+      label: 'AR Domestic USD (ref.)',
+      value: '—',
+      emphasis: true,
+    },
+    {
+      label: 'AR Export USD (ref.)',
+      value: '—',
+      emphasis: true,
+    },
+  ]
+
+  const financialRight = [
+    {
+      label: 'Last Update',
+      value: data.fin_report_date ?? data.as_of_date ?? '—',
+      emphasis: true,
+    },
+  ]
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
-      <div className="w-full max-w-md">
-        <div className="rounded-xl border border-gray-200 bg-white px-8 py-10 text-center shadow-sm">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-            <svg
-              className="h-8 w-8 text-red-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.834-1.964-.834-2.732 0L3.07 16.5c-.77.833.192 2.5 1.732 2.5z"
-              />
-            </svg>
+    <div className="min-h-screen bg-[#E9EAEC] px-4 py-6">
+      <div className="mx-auto max-w-[1180px] bg-[#E9EAEC]">
+        <header className="overflow-hidden border border-slate-300 bg-white shadow-sm">
+          <div className="bg-[#234774] px-6 py-4 text-center text-white">
+            <h1 className="text-[22px] font-bold tracking-tight">
+              URISA Enterprise System&nbsp;&nbsp;|&nbsp;&nbsp;Executive Dashboard
+            </h1>
           </div>
+          <TopInfoBar
+            lastUpdate={data.as_of_date ?? '—'}
+            fx={formatFx(data.fx_mxnusd)}
+          />
+        </header>
 
-          <h1 className="text-xl font-bold text-gray-900">{content.title}</h1>
+        <div className="mt-3 space-y-2">
+          <section>
+            <SectionHeader title="Production" />
+            <div className="grid grid-cols-[300px_1fr_1fr] gap-0 bg-[#E9EAEC]">
+              <VerticalMetricGroup items={productionLeft} />
+              <VerticalMetricGroup items={productionMiddle} />
+              <VerticalMetricGroup items={productionRight} />
+            </div>
+          </section>
 
-          {moduleName && (
-            <span className="mt-2 inline-block rounded-full bg-blue-100 px-3 py-0.5 text-xs font-medium text-blue-700">
-              Módulo: {moduleName}
-            </span>
-          )}
+          <section>
+            <SectionHeader title="Sales" />
+            <div className="grid grid-cols-[300px_1fr_1fr] gap-0 bg-[#E9EAEC]">
+              <VerticalMetricGroup items={salesLeft} />
+              <VerticalMetricGroup items={salesMiddle} />
+              <VerticalMetricGroup items={salesRight} />
+            </div>
+          </section>
 
-          <p className="mt-3 text-sm leading-relaxed text-gray-500">
-            {content.description}
-          </p>
-
-          <div className="mt-8 flex flex-col gap-3">
-            {content.showDashboardButton && (
-              <Link
-                href="/dashboard"
-                className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                Ir al Dashboard
-              </Link>
-            )}
-
-            {content.showLoginButton && (
-              <Link
-                href="/login"
-                className="inline-flex w-full items-center justify-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              >
-                Iniciar sesión
-              </Link>
-            )}
-
-            {content.showContactAdmin && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-left">
-                <p className="text-sm text-amber-800">
-                  <span className="font-medium">Acción requerida:</span>{' '}
-                  Contacta al administrador del sistema para resolver este
-                  problema.
-                </p>
+          <section>
+            <SectionHeader title="Inventory" />
+            <div className="space-y-0">
+              <div className="grid grid-cols-3 gap-0">
+                {inventoryTop.map((item) => (
+                  <VerticalMetricGroup
+                    key={item.label}
+                    items={[item]}
+                    tone="inventory"
+                  />
+                ))}
               </div>
-            )}
+              <div className="grid grid-cols-2 gap-0">
+                {inventoryBottom.map((item) => (
+                  <VerticalMetricGroup
+                    key={item.label}
+                    items={[item]}
+                    tone="inventory"
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
 
-            {!hasPrimaryAction && (
-              <Link
-                href="/dashboard"
-                className="inline-flex w-full items-center justify-center rounded-md bg-gray-100 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors duration-150 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-              >
-                ← Volver al inicio
-              </Link>
-            )}
-          </div>
-
-          {reason && (
-            <p className="mt-6 text-xs text-gray-300">Código: {reason}</p>
-          )}
+          <section>
+            <SectionHeader title="Financials" />
+            <div className="grid grid-cols-[300px_1fr_1fr] gap-0 bg-[#E9EAEC]">
+              <VerticalMetricGroup items={financialLeft} />
+              <VerticalMetricGroup items={financialMiddle} />
+              <VerticalMetricGroup items={financialRight} />
+            </div>
+          </section>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

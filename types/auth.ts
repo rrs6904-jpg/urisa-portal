@@ -38,3 +38,10 @@ export interface SessionContext {
   profile: Profile
   permissions: ModulePermission[]
 }
+
+export type AuthErrorCode =
+  | 'no-profile'
+  | 'inactive'
+  | 'unauthorized'
+  | 'forbidden'
+  | 'no-permissions'

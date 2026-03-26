@@ -1,64 +1,40 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '../supabase/server'
 
-function isSafeRedirect(path: string | null): boolean {
-  if (!path) return false
-  if (!path.startsWith('/')) return false
-  if (path.startsWith('//')) return false
-  if (path.startsWith('/login')) return false
-  if (path.startsWith('/unauthorized')) return false
-  return true
-}
+export async function loginAction(formData: FormData) {
+  const supabase = await createClient()
 
-export async function loginAction(formData: FormData): Promise<void> {
-  const emailEntry = formData.get('email')
-  const passwordEntry = formData.get('password')
-  const redirectToEntry = formData.get('redirectTo')
-
-  const email =
-    typeof emailEntry === 'string' ? emailEntry.trim() : null
-  const password =
-    typeof passwordEntry === 'string' ? passwordEntry : null
-  const redirectTo =
-    typeof redirectToEntry === 'string' ? redirectToEntry : null
+  const email = String(formData.get('email') ?? '').trim().toLowerCase()
+  const password = String(formData.get('password') ?? '')
 
   if (!email || !password) {
     redirect('/login?error=unauthorized')
   }
 
-  const supabase = await createClient()
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
 
-  const { data: authData, error: authError } =
-    await supabase.auth.signInWithPassword({ email, password })
-
-  if (authError || !authData.user) {
+  if (error || !data.session) {
     redirect('/login?error=unauthorized')
   }
 
-  const userId = authData.user.id
+  const appsmithBaseUrl = process.env.NEXT_PUBLIC_APPSMITH_APP_URL
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('id, is_active')
-    .eq('id', userId)
-    .single()
-
-  if (profileError || !profile) {
-    await supabase.auth.signOut()
-    redirect('/login?error=no-profile')
+  if (!appsmithBaseUrl) {
+    redirect('/login?error=appsmith-url-missing')
   }
 
-  if (!profile.is_active) {
-    await supabase.auth.signOut()
-    redirect('/login?error=inactive')
-  }
+  const separator = appsmithBaseUrl.includes('?') ? '&' : '?'
+  const appsmithTargetUrl = `${appsmithBaseUrl}${separator}email=${encodeURIComponent(email)}`
 
-  redirect(isSafeRedirect(redirectTo) ? (redirectTo as string) : '/dashboard')
+  redirect(appsmithTargetUrl)
 }
 
-export async function logoutAction(): Promise<void> {
+export async function logoutAction() {
   const supabase = await createClient()
   await supabase.auth.signOut()
   redirect('/login')
