@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation'
 import { createClient } from '../supabase/server'
+import { redirectToAppsmith } from './appsmith'
 
 export async function loginAction(formData: FormData) {
   const supabase = await createClient()
@@ -22,16 +23,7 @@ export async function loginAction(formData: FormData) {
     redirect('/login?error=unauthorized')
   }
 
-  const appsmithBaseUrl = process.env.NEXT_PUBLIC_APPSMITH_APP_URL
-
-  if (!appsmithBaseUrl) {
-    redirect('/login?error=appsmith-url-missing')
-  }
-
-  const separator = appsmithBaseUrl.includes('?') ? '&' : '?'
-  const appsmithTargetUrl = `${appsmithBaseUrl}${separator}email=${encodeURIComponent(email)}`
-
-  redirect(appsmithTargetUrl)
+  await redirectToAppsmith()
 }
 
 export async function logoutAction() {
