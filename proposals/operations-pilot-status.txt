@@ -1,0 +1,11 @@
+Prepared read-only identity pilot. NOT deployed. SQL NOT applied.
+The portal route uses its existing server Supabase client and verified getUser.
+RPC checks auth.uid(), JWT expiration, live auth.sessions row and not_after,
+confirmed/unbanned user, active profiles/app_users, Ops_Board and ops membership.
+No supplied email, user_id or role authorizes the request.
+HTTP handler tests passed using mocked Next/Supabase; full build, SQL integration,
+permission cases, logout and deactivation remain pending.
+This pilot does not yet issue its own HttpOnly session or migrate Operations UI.
+No reads of matters, writes, attachments or notifications are implemented.
+Do not deploy main or this branch over the deployed V2 without full reconciliation.
+Supabase sessions reference: https://supabase.com/docs/guides/auth/sessions
