@@ -1,0 +1,29 @@
+Operations identity pilot — 7 octubre 2026
+
+PASS: TypeScript noEmit de la rama con correccion del middleware.
+PASS: pruebas de endpoint con Next/Supabase simulados, sin sesion, permiso
+denegado, RPC ausente, backend fallido y derivacion del actor sin argumentos.
+PASS: middleware del piloto devuelve JSON 401, conserva redireccion legacy
+y deja pasar una peticion autenticada al endpoint.
+PASS: 18 casos SQL en PGlite 0.5.8 (PostgreSQL local, datos sinteticos):
+lector valido, sin claims, JWT vencido, session_id malformado, sesion ajena,
+usuario ajeno, sesion revocada, sesion vencida, perfil inactivo, usuario app
+inactivo, usuario no confirmado, usuario bloqueado, pagina inactiva, sin
+permiso de lectura, miembro inactivo, administrador permitido, email/metadata
+cliente ignorados y metadata editable incapaz de conceder permiso.
+PASS: EXECUTE anon denegado y authenticated permitido en SQL local.
+
+LIMITES: no certifica la validacion JWT de PostgREST, configuracion Auth,
+cookies reales, logout/renovacion, navegacion, iframe, datos Operations o RLS
+integral. El esquema local reproduce solo dependencias necesarias.
+Next build local bloqueado por EACCES en SWC sobre Windows; build Linux pendiente.
+SQL preparado pero NO aplicado a Supabase. Piloto NO desplegado.
+El piloto aun usa las cookies existentes del portal; una sesion HttpOnly propia
+con renovacion y politica de inactividad sigue pendiente de implementacion.
+
+El paquete ZIP contiene solo pagina/endpoint del piloto, middleware actualizado
+y propuesta SQL. El script build-check copia V2 en otra carpeta del VPS y aplica
+el paquete alli; conserva dependencias fijadas y variables privadas dentro del VPS.
+No inicia servicio ni modifica proxy ni funciones DB. No desplegar esta copia
+sin revisar tambien las diferencias del middleware contra V2 real.
+

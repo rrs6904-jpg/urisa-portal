@@ -54,6 +54,14 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
+  // Pilot API responds as JSON; never redirect fetch requests to the login HTML.
+  if (!user && pathname === '/api/pilot/operations/me') {
+    return withAuthCookies(NextResponse.json(
+      { error: 'unauthenticated' },
+      { status: 401, headers: { 'Cache-Control': 'no-store, private' } }
+    ))
+  }
+
   // Sin sesión → redirigir a login preservando destino
   if (!user) {
     const loginUrl = new URL('/login', request.url)
