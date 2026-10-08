@@ -12,7 +12,7 @@ export function fixedErpRuntimeUrl(): URL {
 }
 
 export function fixedErpExchangeUrl(code: string): URL {
-  const url = new URL('https://erp.urisacompresores.com/__urisa/exchange')
+  const url = new URL('https://erp.urisacompresores.com/urisa-auth/exchange')
   url.searchParams.set('code', code)
   return url
 }
