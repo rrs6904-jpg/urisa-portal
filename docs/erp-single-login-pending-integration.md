@@ -4,14 +4,14 @@ These changes are required before the ERP pilot branch can be deployed.
 
 ## 1. Portal middleware
 
-The existing middleware currently requires a Supabase portal session for every non-public route. The ERP perimeter endpoints under /__urisa/* must be allowed through without requiring the portal Supabase cookie, because they authenticate using the ERP bootstrap/session cookies and server-side RPC validation.
+The existing middleware currently requires a Supabase portal session for every non-public route. The ERP perimeter endpoints under /urisa-auth/* must be allowed through without requiring the portal Supabase cookie, because they authenticate using the ERP bootstrap/session cookies and server-side RPC validation.
 
 Required behavior:
-- /__urisa/start: public to the ERP hostname only.
-- /__urisa/exchange: requires valid bootstrap cookie + one-time code.
-- /__urisa/check: requires valid ERP session cookie.
-- /__urisa/logout: revokes ERP session if present.
-- Nginx must expose /__urisa/* only on erp.urisacompresores.com.
+- /urisa-auth/start: public to the ERP hostname only.
+- /urisa-auth/exchange: requires valid bootstrap cookie + one-time code.
+- /urisa-auth/check: requires valid ERP session cookie.
+- /urisa-auth/logout: revokes ERP session if present.
+- Nginx must expose /urisa-auth/* only on erp.urisacompresores.com.
 - portal.urisacompresores.com must not proxy these ERP runtime endpoints externally.
 
 ## 2. Login action redirect
@@ -39,6 +39,6 @@ Do not deploy this branch until:
 5. the reviewed SQL migration is applied;
 6. middleware/login integration is committed;
 7. portal build passes;
-8. isolated /__urisa/start -> authorize -> exchange -> check tests pass.
+8. isolated /urisa-auth/start -> authorize -> exchange -> check tests pass.
 
 No Appsmith proxy is enabled until those tests pass.
