@@ -57,7 +57,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname === '/login' || pathname === '/unauthorized') {
+  if (pathname === '/login' || pathname === '/erp/login' || pathname === '/unauthorized') {
     return supabaseResponse
   }
 
