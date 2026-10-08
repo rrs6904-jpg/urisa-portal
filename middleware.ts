@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const ADMIN_ROUTES = ['/admin']
+const ERP_AUTH_PREFIX = '/urisa-auth/'
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -27,14 +28,19 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Siempre llamar getUser() para refrescar tokens de sesión
+  const { pathname } = request.nextUrl
+
+  // ERP perimeter endpoints authenticate with ERP-specific cookies/server RPCs.
+  // Nginx exposes these only on erp.urisacompresores.com.
+  if (pathname.startsWith(ERP_AUTH_PREFIX)) {
+    supabaseResponse.headers.set('Cache-Control', 'private, no-store')
+    return supabaseResponse
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { pathname } = request.nextUrl
-
-  // Copia cookies de sesión a cualquier respuesta de redirección
   function withAuthCookies(response: NextResponse): NextResponse {
     supabaseResponse.cookies.getAll().forEach((cookie) => {
       response.cookies.set(cookie)
@@ -42,26 +48,28 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Usuario autenticado en /login → redirigir al dashboard
   if (user && pathname === '/login') {
-    return withAuthCookies(
-      NextResponse.redirect(new URL('/dashboard', request.url))
-    )
+    const redirectTo = request.nextUrl.searchParams.get('redirectTo')
+    if (!redirectTo) {
+      return withAuthCookies(
+        NextResponse.redirect(new URL('/dashboard', request.url))
+      )
+    }
   }
 
-  // Rutas públicas — validación exacta, sin startsWith
   if (pathname === '/login' || pathname === '/unauthorized') {
     return supabaseResponse
   }
 
-  // Sin sesión → redirigir a login preservando destino
   if (!user) {
     const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirectTo', pathname)
+    loginUrl.searchParams.set(
+      'redirectTo',
+      `${pathname}${request.nextUrl.search}`
+    )
     return withAuthCookies(NextResponse.redirect(loginUrl))
   }
 
-  // Rutas solo admin → verificar rol en DB
   if (ADMIN_ROUTES.some((route) => pathname.startsWith(route))) {
     const { data: profile } = await supabase
       .from('profiles')
