@@ -61,6 +61,7 @@ export async function middleware(request: NextRequest) {
     pathname === '/login' ||
     pathname === '/erp/login' ||
     pathname === '/erp/authorize' ||
+    pathname === '/erp/logout' ||
     pathname === '/unauthorized'
   ) {
     return supabaseResponse
