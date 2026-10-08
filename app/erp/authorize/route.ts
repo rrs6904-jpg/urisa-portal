@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    const login = new URL('/erp/login', request.url)
+    const login = new URL('https://portal.urisacompresores.com/erp/login')
     login.searchParams.set('redirectTo', `/erp/authorize?nonce=${encodeURIComponent(nonce)}`)
     return NextResponse.redirect(login, 302)
   }
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   const sourceSessionId = sessionIdFromAccessToken(session?.access_token)
 
   if (sessionError || !sourceSessionId) {
-    return NextResponse.redirect(new URL('/login?error=unauthorized', request.url), 302)
+    return NextResponse.redirect(new URL('https://portal.urisacompresores.com/erp/login?error=unauthorized'), 302)
   }
 
   const code = newOpaqueToken()
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
   })
 
   if (error || data !== true) {
-    return NextResponse.redirect(new URL('/unauthorized?reason=erp', request.url), 302)
+    return NextResponse.redirect(new URL('https://portal.urisacompresores.com/unauthorized?reason=erp'), 302)
   }
 
   const response = NextResponse.redirect(fixedErpExchangeUrl(code), 302)
