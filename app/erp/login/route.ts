@@ -105,15 +105,19 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = await createClient()
+  console.log('[ERP_LOGIN]', new Date().toISOString(), 'attempt', email)
+
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error || !data.session) {
+    console.log('[ERP_LOGIN]', new Date().toISOString(), 'denied', email)
     const retry = new URL('https://portal.urisacompresores.com/erp/login')
     retry.searchParams.set('redirectTo', redirectTo)
     retry.searchParams.set('error', 'unauthorized')
     return NextResponse.redirect(retry, 303)
   }
 
+  console.log('[ERP_LOGIN]', new Date().toISOString(), 'success', email)
   return NextResponse.redirect(
     new URL(redirectTo, 'https://portal.urisacompresores.com'),
     303,
