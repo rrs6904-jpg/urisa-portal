@@ -14,14 +14,14 @@ Preserve the existing Appsmith ERP. The portal is the authentication authority a
 
 ## Handshake
 
-1. Browser requests https://erp.urisacompresores.com/__urisa/start.
-2. Nginx proxies only /__urisa/* to the existing portal Next.js service on 127.0.0.1:3001.
-3. /__urisa/start creates a cryptographically random browser nonce, sets a short-lived host-only HttpOnly Secure cookie on erp.urisacompresores.com, and redirects to an allowlisted portal authorize URL.
+1. Browser requests https://erp.urisacompresores.com/urisa-auth/start.
+2. Nginx proxies only /urisa-auth/* to the existing portal Next.js service on 127.0.0.1:3001.
+3. /urisa-auth/start creates a cryptographically random browser nonce, sets a short-lived host-only HttpOnly Secure cookie on erp.urisacompresores.com, and redirects to an allowlisted portal authorize URL.
 4. /erp/authorize runs on portal.urisacompresores.com, validates the live Supabase user/session and current active-user state, validates the browser nonce format, creates a cryptographically random one-time code, stores only hashes server-side, and redirects to the fixed ERP exchange URL.
-5. /__urisa/exchange consumes the code atomically and requires the matching browser nonce cookie. A code can succeed once only.
+5. /urisa-auth/exchange consumes the code atomically and requires the matching browser nonce cookie. A code can succeed once only.
 6. Exchange creates an opaque ERP session and sets a host-only HttpOnly Secure SameSite=Lax cookie on erp.urisacompresores.com.
-7. Nginx auth_request calls /__urisa/check for every protected runtime request.
-8. /__urisa/check validates the opaque ERP session and the current authoritative user/session state. Failure returns 401/403 and never stale cached authorization.
+7. Nginx auth_request calls /urisa-auth/check for every protected runtime request.
+8. /urisa-auth/check validates the opaque ERP session and the current authoritative user/session state. Failure returns 401/403 and never stale cached authorization.
 9. The ERP session cookie is not forwarded upstream to Appsmith.
 
 ## Required server-side persistence
@@ -58,7 +58,7 @@ The consume and session creation must be one transaction.
 
 ## Revocation checks
 
-A valid ERP cookie alone is insufficient. /__urisa/check must fail closed when:
+A valid ERP cookie alone is insufficient. /urisa-auth/check must fail closed when:
 - ERP session is expired or revoked;
 - Supabase source session no longer exists/is valid;
 - user is disabled/banned/unconfirmed;
@@ -71,7 +71,7 @@ No arbitrary redirect URL from query parameters.
 
 Allowed redirects are fixed server-side:
 - Portal authorize: https://portal.urisacompresores.com/erp/authorize
-- ERP exchange: https://erp.urisacompresores.com/__urisa/exchange
+- ERP exchange: https://erp.urisacompresores.com/urisa-auth/exchange
 - Failed auth: https://portal.urisacompresores.com/login
 
 ## Appsmith boundary
