@@ -50,6 +50,8 @@ grant select, insert, update, delete on urisa_auth.erp_sessions to service_role;
 grant usage, select on all sequences in schema urisa_auth to service_role;
 
 create or replace function public.erp_issue_login_code(
+  p_user_id uuid,
+  p_source_session_id uuid,
   p_code_hash text,
   p_browser_nonce_hash text
 ) returns boolean
@@ -59,30 +61,20 @@ security definer
 set search_path = pg_catalog, public, urisa_auth, pg_temp
 as $function$
 declare
-  v_session_id uuid;
   v_email text;
 begin
-  if auth.uid() is null
+  if p_user_id is null
+     or p_source_session_id is null
      or p_code_hash !~ '^[a-f0-9]{64}$'
      or p_browser_nonce_hash !~ '^[a-f0-9]{64}$' then
-    raise exception 'ERP authorization denied' using errcode='42501';
-  end if;
-
-  begin
-    v_session_id := nullif(auth.jwt()->>'session_id','')::uuid;
-  exception when others then
-    raise exception 'ERP authorization denied' using errcode='42501';
-  end;
-
-  if v_session_id is null then
-    raise exception 'ERP authorization denied' using errcode='42501';
+    return false;
   end if;
 
   select lower(u.email)
     into v_email
   from auth.users u
   join auth.sessions s
-    on s.id = v_session_id
+    on s.id = p_source_session_id
    and s.user_id = u.id
   join public.profiles p
     on p.id = u.id
@@ -90,7 +82,7 @@ begin
   join public.app_users a
     on lower(a.email)=lower(u.email)
    and a.is_active is true
-  where u.id = auth.uid()
+  where u.id = p_user_id
     and u.email_confirmed_at is not null
     and (u.banned_until is null or u.banned_until <= statement_timestamp())
     and (s.not_after is null or s.not_after > statement_timestamp())
@@ -113,7 +105,7 @@ begin
     );
 
   if v_email is null then
-    raise exception 'ERP authorization denied' using errcode='42501';
+    return false;
   end if;
 
   delete from urisa_auth.erp_login_codes
@@ -123,15 +115,17 @@ begin
   insert into urisa_auth.erp_login_codes(
     code_hash, browser_nonce_hash, user_id, source_session_id, expires_at
   ) values (
-    p_code_hash, p_browser_nonce_hash, auth.uid(), v_session_id, now() + interval '60 seconds'
+    p_code_hash, p_browser_nonce_hash, p_user_id, p_source_session_id, now() + interval '60 seconds'
   );
 
   return true;
 end;
 $function$;
 
-revoke all on function public.erp_issue_login_code(text,text) from public, anon, authenticated;
-grant execute on function public.erp_issue_login_code(text,text) to authenticated;
+revoke all on function public.erp_issue_login_code(uuid,uuid,text,text)
+  from public, anon, authenticated;
+grant execute on function public.erp_issue_login_code(uuid,uuid,text,text)
+  to service_role;
 
 create or replace function public.erp_exchange_login_code(
   p_code_hash text,
@@ -261,7 +255,8 @@ begin
 
   update urisa_auth.erp_sessions
      set last_seen_at=now()
-   where id=v_session.id;
+   where id=v_session.id
+     and last_seen_at < now() - interval '5 minutes';
 
   return true;
 end;
@@ -295,5 +290,5 @@ commit;
 -- drop function if exists public.erp_revoke_session(text);
 -- drop function if exists public.erp_validate_session(text);
 -- drop function if exists public.erp_exchange_login_code(text,text,text);
--- drop function if exists public.erp_issue_login_code(text,text);
+-- drop function if exists public.erp_issue_login_code(uuid,uuid,text,text);
 -- drop schema if exists urisa_auth cascade;
