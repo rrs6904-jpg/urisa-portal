@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    const login = new URL('/login', request.url)
+    const login = new URL('/erp/login', request.url)
     login.searchParams.set('redirectTo', `/erp/authorize?nonce=${encodeURIComponent(nonce)}`)
     return NextResponse.redirect(login, 302)
   }
