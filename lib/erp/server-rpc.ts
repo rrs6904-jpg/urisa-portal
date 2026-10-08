@@ -11,7 +11,9 @@ function supabaseUrl(): string {
 
 function secretKey(): string {
   const value = process.env.URISA_SUPABASE_SECRET_KEY
-  if (!value) throw new Error('Missing URISA_SUPABASE_SECRET_KEY')
+  if (!value || !value.startsWith('sb_secret_')) {
+    throw new Error('Missing or invalid URISA_SUPABASE_SECRET_KEY')
+  }
   return value
 }
 
@@ -26,7 +28,6 @@ export async function serverRpc<T>(
     cache: 'no-store',
     headers: {
       apikey: key,
-      Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
