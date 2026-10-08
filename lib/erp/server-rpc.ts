@@ -18,7 +18,11 @@ function secretKey(): string {
 }
 
 export async function serverRpc<T>(
-  name: 'erp_exchange_login_code' | 'erp_validate_session' | 'erp_revoke_session',
+  name:
+    | 'erp_issue_login_code'
+    | 'erp_exchange_login_code'
+    | 'erp_validate_session'
+    | 'erp_revoke_session',
   body: Record<string, unknown>,
 ): Promise<RpcResult<T>> {
   const key = secretKey()
