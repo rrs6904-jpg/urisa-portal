@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const target = new URL('https://portal.urisacompresores.com/login')
+  const target = new URL('https://portal.urisacompresores.com/erp/logout')
   const response = NextResponse.redirect(target, 302)
   response.headers.set('Cache-Control', 'private, no-store')
   response.cookies.delete(ERP_SESSION_COOKIE)
