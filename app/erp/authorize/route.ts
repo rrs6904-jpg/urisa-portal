@@ -59,10 +59,13 @@ export async function GET(request: NextRequest) {
   })
 
   if (error || data !== true) {
+    console.log('[ERP_AUTHORIZE] issue_code_denied')
     return NextResponse.redirect(new URL('https://portal.urisacompresores.com/unauthorized?reason=erp'), 302)
   }
 
-  const response = NextResponse.redirect(fixedErpExchangeUrl(code), 302)
+  const exchangeUrl = fixedErpExchangeUrl(code)
+  console.log('[ERP_AUTHORIZE] success -> exchange', exchangeUrl.origin + exchangeUrl.pathname)
+  const response = NextResponse.redirect(exchangeUrl, 302)
   response.headers.set('Cache-Control', 'private, no-store')
   response.headers.set('Referrer-Policy', 'no-referrer')
   return response
