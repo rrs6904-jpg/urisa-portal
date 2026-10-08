@@ -3,6 +3,30 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '../supabase/server'
 import { redirectToAppsmith } from './appsmith'
+import { isOpaqueToken } from '../erp/token'
+
+function safeErpAuthorizeRedirect(value: FormDataEntryValue | null): string | null {
+  if (typeof value !== 'string') return null
+
+  let parsed: URL
+  try {
+    parsed = new URL(value, 'https://portal.urisacompresores.com')
+  } catch {
+    return null
+  }
+
+  if (
+    parsed.origin !== 'https://portal.urisacompresores.com' ||
+    parsed.pathname !== '/erp/authorize'
+  ) {
+    return null
+  }
+
+  const nonce = parsed.searchParams.get('nonce')
+  if (!isOpaqueToken(nonce)) return null
+
+  return `/erp/authorize?nonce=${encodeURIComponent(nonce)}`
+}
 
 export async function loginAction(formData: FormData) {
   const supabase = await createClient()
@@ -22,6 +46,9 @@ export async function loginAction(formData: FormData) {
   if (error || !data.session) {
     redirect('/login?error=unauthorized')
   }
+
+  const erpRedirect = safeErpAuthorizeRedirect(formData.get('redirectTo'))
+  if (erpRedirect) redirect(erpRedirect)
 
   await redirectToAppsmith()
 }
