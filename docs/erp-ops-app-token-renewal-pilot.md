@@ -19,8 +19,13 @@
 - El endpoint no devuelve ni registra credenciales. No exponerlo en 
   `portal.urisacompresores.com` (solo en el hostname ERP).
 
+## Estado comprobado: 09-oct-2026
+- Migración aditiva **APLICADA** en Supabase Dashboard. Permisos comprobados: anon/authenticated DENY, service_role ALLOW, token falso devuelve false; cero leases superan a la sesión principal.
+- Endpoint Next.js y JSObject de Operations **PREPARADOS EN RAMAS PILOTO, NO DESPLEGADOS**.
+- Test de sintaxis/simulación JS: PASS; integración HTTP real Appsmith pendiente.
+
 ## Orden de implementación
-1. Aplicar migración aditiva `docs/sql/erp-ops-app-token-rolling-v1.sql` en
+1. Ya aplicada migración aditiva `docs/sql/erp-ops-app-token-rolling-v1.sql` en
    Supabase Dashboard `rcglkvoqvefenhzquaba`.
 2. Desplegar código de Portal `app/urisa-auth/refresh/route.ts` en el
    servicio existente del piloto (no tocar `main`).
