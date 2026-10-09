@@ -23,7 +23,8 @@ export async function serverRpc<T>(
     | 'erp_exchange_login_code'
     | 'erp_validate_session'
     | 'erp_revoke_session'
-    | 'erp_bind_appsmith_token',
+    | 'erp_bind_appsmith_token'
+    | 'erp_refresh_appsmith_token_v1',
   body: Record<string, unknown>,
 ): Promise<RpcResult<T>> {
   const key = secretKey()
