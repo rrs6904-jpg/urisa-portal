@@ -56,3 +56,29 @@
 PASS solamente tras observar renovación automática **sin redirección ni pérdida 
 de formularios**, TTL de 15 min extendido dentro de la sesión de 8 horas, 
 revocación real y negativo por orígenes/permisos.
+
+
+## Confirmación Nginx/PM2 (09-oct-2026)
+- Portal productivo `portal.urisacompresores.com/` y el resto de rutas comunes:
+  servicio PM2 id=2 `urisa-portal-prueba`, `127.0.0.1:3001`.
+- Rutas excepcionales `portal.urisacompresores.com/erp/login`,
+  `/erp/authorize`, `/erp/logout`: PM2 id=4
+  `urisa-portal-erp-pilot`, `127.0.0.1:3002`.
+- Host `erp.urisacompresores.com`: `/urisa-auth/*` y subsolicitud
+  `/_urisa_erp_auth_check` -> 3002; runtime Appsmith -> 8080 protegido por
+  Nginx auth_request; cookie de sesión ERP NO pasa a Appsmith.
+- **NO ejecutar npm build dentro del árbol de trabajo de 3002 en uso**;
+  Next.js puede quedar en estado parcial mientras genera `.next`.
+- Despliegue propuesto de renovación: Git worktree independiente
+  `/var/www/portal-erp-refresh-20261009`, build separado y proceso 
+  canario ligado SOLO a `127.0.0.1:3003`. Verificar localhost primero.
+- Una vez probado, Nginx puede agregar `location = /urisa-auth/refresh`
+  apuntando SOLO a 3003 bajo el host ERP, **sin cambiar** rutas ERP antiguas
+  ni portal productivo. `nginx -t` antes de recargar. El cambio de login/logo
+  puede introducirse aparte con `location = /erp/login` a 3003 solo después
+  de validación funcional.
+- Confirmar que 3003 está libre, entorno `.env*` cargado sin exposición de
+  secretos, `npm ci`, `npm run build` y GET/POST local a refresh: 401 sin
+  cookie, 403 Origin ajeno, 405 GET; luego test real con sesión.
+- Reversión: retirar SOLO la ruta exacta de refresh y recargar Nginx; 
+  PM2 id=4/3002 y PM2 id=2/3001 permanecen intactos.
