@@ -67,6 +67,53 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Verify a legitimate, newly bound application token against the
+    // independently deployed stage-permissions API (loopback only).
+    // No token is returned to the browser, written to a URL, or logged.
+    let verifiedApiCount = 0
+    try {
+      const apiResponse = await fetch(
+        'http://127.0.0.1:3007/urisa-auth/stage-permissions',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ erp_token: appToken }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(5000),
+        },
+      )
+      if (!apiResponse.ok) {
+        return new NextResponse('ERP STAGE permissions API denied', {
+          status: 503,
+          headers: { 'Cache-Control': 'private, no-store' },
+        })
+      }
+      const payload: unknown = await apiResponse.json()
+      if (!payload || typeof payload !== 'object' || !('grants' in payload)) {
+        return new NextResponse('ERP STAGE permissions API invalid response', {
+          status: 503, headers: { 'Cache-Control': 'private, no-store' },
+        })
+      }
+      const { grants: apiGrants } = payload as { grants: unknown }
+      if (!Array.isArray(apiGrants) || apiGrants.length === 0) {
+        return new NextResponse('ERP STAGE permissions API no grants', {
+          status: 503, headers: { 'Cache-Control': 'private, no-store' },
+        })
+      }
+      // The grants count displayed below must match the canonical
+      // physical page count already obtained from Supabase.
+      verifiedApiCount = apiGrants.filter(
+        (row: unknown) => row && typeof row === 'object' &&
+          'appsmith_page' in row &&
+          typeof row.appsmith_page === 'string' &&
+          'can_view' in row && row.can_view === true,
+      ).length
+    } catch {
+      return new NextResponse('ERP STAGE permissions API unavailable', {
+        status: 503, headers: { 'Cache-Control': 'private, no-store' },
+      })
+    }
+
     // Distinguish physical Appsmith pages from auxiliary catalog permissions.
     const count = grants.data.length
     const mapped = grants.data.filter(row => typeof row.appsmith_page === 'string' && row.appsmith_page.length > 0).length
@@ -98,6 +145,7 @@ strong{color:#086a3a}</style></head><body>
 <p><strong>Autenticación y permisos: PASS</strong></p>
 <p>Permisos activos del catálogo: <strong>${count}</strong></p>
 <p>Páginas Appsmith vinculadas al catálogo: <strong>${mapped}</strong> · Categorías auxiliares: <strong>${auxiliary}</strong></p>
+<p>API HTTPS de permisos (motor 3007): <strong>${verifiedApiCount === mapped ? 'PASS' : 'REVISAR'}</strong> · Páginas validadas: <strong>${verifiedApiCount}</strong></p>
 <p>Home (solo lectura): <strong>${home ? 'PERMITIDO' : 'DENEGADO'}</strong></p>
 <p>Operations: <strong>${operations ? 'PERMITIDO' : 'DENEGADO'}</strong></p>
 <p>MLB (pendiente de catálogo): <strong>${mlb ? 'PERMITIDO' : 'DENEGADO'}</strong></p>
