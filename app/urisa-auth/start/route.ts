@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { newOpaqueToken } from '@/lib/erp/token'
+import { ERP_BOOTSTRAP_COOKIE, ERP_PORTAL_AUTHORIZE_PATH } from '@/lib/erp/config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const BOOTSTRAP_COOKIE = '__Host-urisa_erp_bootstrap'
+const BOOTSTRAP_COOKIE = ERP_BOOTSTRAP_COOKIE
 
 export async function GET(request: NextRequest) {
   const portalAuthorize = process.env.URISA_ERP_PORTAL_AUTHORIZE_URL
@@ -13,15 +14,15 @@ export async function GET(request: NextRequest) {
   try {
     authorizeUrl = new URL(portalAuthorize ?? '')
   } catch {
-    return new NextResponse('ERP pilot is not configured', { status: 503 })
+    return new NextResponse('ERP authentication is not configured', { status: 503 })
   }
 
   if (
     authorizeUrl.protocol !== 'https:' ||
     authorizeUrl.hostname !== 'portal.urisacompresores.com' ||
-    authorizeUrl.pathname !== '/erp/authorize'
+    authorizeUrl.pathname !== ERP_PORTAL_AUTHORIZE_PATH
   ) {
-    return new NextResponse('ERP pilot is not configured', { status: 503 })
+    return new NextResponse('ERP authentication is not configured', { status: 503 })
   }
 
   const nonce = newOpaqueToken()
