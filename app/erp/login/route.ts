@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { isOpaqueToken } from '@/lib/erp/token'
+import { ERP_PORTAL_AUTHORIZE_PATH, ERP_PORTAL_LOGIN_PATH } from '@/lib/erp/config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,7 +18,7 @@ function safeAuthorizeTarget(value: string | null): string | null {
 
   if (
     parsed.origin !== 'https://portal.urisacompresores.com' ||
-    parsed.pathname !== '/erp/authorize'
+    parsed.pathname !== ERP_PORTAL_AUTHORIZE_PATH
   ) {
     return null
   }
@@ -25,7 +26,7 @@ function safeAuthorizeTarget(value: string | null): string | null {
   const nonce = parsed.searchParams.get('nonce')
   if (!isOpaqueToken(nonce)) return null
 
-  return `/erp/authorize?nonce=${encodeURIComponent(nonce)}`
+  return `${ERP_PORTAL_AUTHORIZE_PATH}?nonce=${encodeURIComponent(nonce)}`
 }
 
 function htmlPage(redirectTo: string, invalid: boolean): string {
@@ -179,7 +180,7 @@ function htmlPage(redirectTo: string, invalid: boolean): string {
       <h1>Iniciar sesión</h1>
       <p class="subtitle">ERP · Operación Monterrey</p>
       ${invalid ? '<div class="err">Correo o contraseña incorrectos.</div>' : ''}
-      <form method="post" action="/erp/login" autocomplete="on">
+      <form method="post" action="${ERP_PORTAL_LOGIN_PATH}" autocomplete="on">
         <input type="hidden" name="redirectTo" value="${safeRedirect}">
         <label for="email">Correo electrónico</label>
         <input id="email" name="email" type="email" autocomplete="username" placeholder="tu.nombre@urisacompresores.com" required autofocus>
@@ -241,7 +242,7 @@ export async function POST(request: NextRequest) {
 
   if (error || !data.session) {
     console.log('[ERP_LOGIN]', new Date().toISOString(), 'denied', email)
-    const retry = new URL('https://portal.urisacompresores.com/erp/login')
+    const retry = new URL(`https://portal.urisacompresores.com${ERP_PORTAL_LOGIN_PATH}`)
     retry.searchParams.set('redirectTo', redirectTo)
     retry.searchParams.set('error', 'unauthorized')
     return NextResponse.redirect(retry, 303)
