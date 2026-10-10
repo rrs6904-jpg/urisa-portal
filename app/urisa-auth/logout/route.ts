@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { ERP_SESSION_COOKIE } from '@/lib/erp/config'
+import { ERP_SESSION_COOKIE, ERP_PORTAL_LOGOUT_PATH } from '@/lib/erp/config'
 import { serverRpc } from '@/lib/erp/server-rpc'
 import { hashOpaqueToken, isOpaqueToken } from '@/lib/erp/token'
 
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const target = new URL('https://portal.urisacompresores.com/erp/logout')
+  const target = new URL(`https://portal.urisacompresores.com${ERP_PORTAL_LOGOUT_PATH}`)
   const response = NextResponse.redirect(target, 302)
   response.headers.set('Cache-Control', 'private, no-store')
   response.cookies.delete(ERP_SESSION_COOKIE)
