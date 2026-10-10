@@ -7,7 +7,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 function operationsUrl(token: string): URL | null {
-  const configured = process.env.URISA_ERP_APPSMITH_OPERATIONS_URL
+  const configured = process.env.URISA_ERP_APPSMITH_FULL_URL
   if (!configured) return null
 
   let url: URL
@@ -20,12 +20,12 @@ function operationsUrl(token: string): URL | null {
   if (
     url.protocol !== 'https:' ||
     url.hostname !== 'erp.urisacompresores.com' ||
-    !url.pathname.startsWith('/app/')
+    !url.pathname.startsWith('/app/urisa-erp-appsmith/')
   ) {
     return null
   }
 
-  url.searchParams.set('erp_token', token)
+  url.search = ''\n  url.searchParams.set('erp_token', token)
   return url
 }
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   }
 
   const appToken = newOpaqueToken()
-  const { data, error } = await serverRpc<boolean>('erp_bind_appsmith_token', {
+  const { data, error } = await serverRpc<boolean>('erp_general_bind_appsmith_token_v1', {
     p_session_hash: hashOpaqueToken(sessionToken),
     p_app_token_hash: hashOpaqueToken(appToken),
   })
@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
 
   const target = operationsUrl(appToken)
   if (!target) {
-    return new NextResponse('ERP Operations route is not configured', { status: 503 })
+    return new NextResponse('Full ERP route is not configured', { status: 503 })
   }
 
   const response = NextResponse.redirect(target, 302)
