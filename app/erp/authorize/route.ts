@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
   }
 
   const code = newOpaqueToken()
-  const { data, error } = await serverRpc<boolean>('erp_issue_login_code', {
+  const { data, error } = await serverRpc<boolean>('erp_general_issue_login_code_v1', {
     p_user_id: user.id,
     p_source_session_id: sourceSessionId,
     p_code_hash: hashOpaqueToken(code),
