@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
 
   // Canary ends at a server-verified page-count probe: it never opens Appsmith.
   if (ERP_FULL_STAGE) {
-    const grants = await serverRpc<Array<{ page_name: string }>>('erp_general_page_grants_v1', {
+    const grants = await serverRpc<Array<{ page_name: string; appsmith_page: string | null }>>('erp_general_page_grants_v1', {
       p_app_token: appToken,
     })
     if (grants.error || !Array.isArray(grants.data) || grants.data.length === 0) {
@@ -67,7 +67,28 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    // Distinguish physical Appsmith pages from auxiliary catalog permissions.
     const count = grants.data.length
+    const mapped = grants.data.filter(row => typeof row.appsmith_page === 'string' && row.appsmith_page.length > 0).length
+    const auxiliary = count - mapped
+
+    const permissionChecks = await Promise.all([
+      serverRpc<boolean>('erp_general_can_access_page_v1', {
+        p_app_token: appToken, p_appsmith_page: 'Home', p_require_edit: false,
+      }),
+      serverRpc<boolean>('erp_general_can_access_page_v1', {
+        p_app_token: appToken, p_appsmith_page: 'Operations', p_require_edit: false,
+      }),
+      serverRpc<boolean>('erp_general_can_access_page_v1', {
+        p_app_token: appToken, p_appsmith_page: 'MLB', p_require_edit: false,
+      }),
+    ])
+    if (permissionChecks.some(check => check.error || typeof check.data !== 'boolean')) {
+      return new NextResponse('ERP staging page authorization probe failed', {
+        status: 503, headers: { 'Cache-Control': 'private, no-store' },
+      })
+    }
+    const [home, operations, mlb] = permissionChecks.map(check => check.data === true)
     const html = `<!doctype html><html lang="es"><head>
 <meta charset="utf-8"><meta name="robots" content="noindex,nofollow">
 <title>URISA ERP · SSO de prueba</title>
@@ -75,7 +96,11 @@ export async function GET(request: NextRequest) {
 strong{color:#086a3a}</style></head><body>
 <h1>URISA ERP · SSO general</h1>
 <p><strong>Autenticación y permisos: PASS</strong></p>
-<p>Páginas permitidas verificadas por Supabase: <strong>${count}</strong></p>
+<p>Permisos activos del catálogo: <strong>${count}</strong></p>
+<p>Páginas Appsmith vinculadas al catálogo: <strong>${mapped}</strong> · Categorías auxiliares: <strong>${auxiliary}</strong></p>
+<p>Home (solo lectura): <strong>${home ? 'PERMITIDO' : 'DENEGADO'}</strong></p>
+<p>Operations: <strong>${operations ? 'PERMITIDO' : 'DENEGADO'}</strong></p>
+<p>MLB (pendiente de catálogo): <strong>${mlb ? 'PERMITIDO' : 'DENEGADO'}</strong></p>
 <p>Prueba aislada: todavía NO se ha abierto Appsmith ni modificado el portal productivo.</p>
 </body></html>`
 
