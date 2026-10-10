@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { fixedErpExchangeUrl } from '@/lib/erp/config'
+import { fixedErpExchangeUrl, ERP_PORTAL_AUTHORIZE_PATH, ERP_PORTAL_LOGIN_PATH } from '@/lib/erp/config'
 import { serverRpc } from '@/lib/erp/server-rpc'
 import { hashOpaqueToken, isOpaqueToken, newOpaqueToken } from '@/lib/erp/token'
 
@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    const login = new URL('https://portal.urisacompresores.com/erp/login')
-    login.searchParams.set('redirectTo', `/erp/authorize?nonce=${encodeURIComponent(nonce)}`)
+    const login = new URL(`https://portal.urisacompresores.com${ERP_PORTAL_LOGIN_PATH}`)
+    login.searchParams.set('redirectTo', `${ERP_PORTAL_AUTHORIZE_PATH}?nonce=${encodeURIComponent(nonce)}`)
     return NextResponse.redirect(login, 302)
   }
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   const sourceSessionId = sessionIdFromAccessToken(session?.access_token)
 
   if (sessionError || !sourceSessionId) {
-    return NextResponse.redirect(new URL('https://portal.urisacompresores.com/erp/login?error=unauthorized'), 302)
+    return NextResponse.redirect(new URL(`https://portal.urisacompresores.com${ERP_PORTAL_LOGIN_PATH}?error=unauthorized`), 302)
   }
 
   const code = newOpaqueToken()
