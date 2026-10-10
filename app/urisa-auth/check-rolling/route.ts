@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(null, { status: 401, headers })
   }
   try {
-    const { data, error } = await serverRpc<boolean>('erp_validate_session_rolling_v1', {
+    const { data, error } = await serverRpc<boolean>('erp_general_validate_rolling_v1', {
       p_session_hash: hashOpaqueToken(token),
     })
     return new NextResponse(null, {
