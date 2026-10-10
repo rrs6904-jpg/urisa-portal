@@ -3,6 +3,7 @@ import {
   ERP_BOOTSTRAP_COOKIE,
   ERP_SESSION_COOKIE,
   ERP_SESSION_MAX_AGE_SECONDS,
+  ERP_AUTH_BASE_PATH,
 } from '@/lib/erp/config'
 import { serverRpc } from '@/lib/erp/server-rpc'
 import { hashOpaqueToken, isOpaqueToken, newOpaqueToken } from '@/lib/erp/token'
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse('ERP exchange denied', { status: 401 })
   }
 
-  const response = NextResponse.redirect(new URL('https://erp.urisacompresores.com/urisa-auth/launch'), 302)
+  const response = NextResponse.redirect(new URL(`https://erp.urisacompresores.com${ERP_AUTH_BASE_PATH}/launch`), 302)
   response.headers.set('Cache-Control', 'private, no-store')
   response.headers.set('Referrer-Policy', 'no-referrer')
 
