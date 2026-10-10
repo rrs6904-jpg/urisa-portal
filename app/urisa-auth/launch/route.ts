@@ -25,7 +25,8 @@ function operationsUrl(token: string): URL | null {
     return null
   }
 
-  url.search = ''\n  url.searchParams.set('erp_token', token)
+  url.search = ''
+  url.searchParams.set('erp_token', token)
   return url
 }
 
