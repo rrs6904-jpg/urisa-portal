@@ -155,3 +155,46 @@ mezclaba dominios, escáneres y aplicaciones; no permite enumerar las dependenci
 del runtime STAGE. Recoger únicamente pathname e iniciador, sin query strings,
 cookies, cabeceras ni respuestas personales. No ejecutar acciones de Operations.
 Esto define las rutas a interceptar: no convierte el diagnóstico en autorización.
+
+
+## Aplicación identificada y alcance real del perímetro (10:33)
+
+El administrador obtuvo del endpoint consolidado autenticado:
+STAGE_APPLICATION_ID=6aca7db6ca8e986ee7957afc.
+Se conserva como identificación del recurso, nunca como credencial.
+
+Carga privada de Home observada en navegador: /api/v1/consolidated-api/view,
+/api/v1/actions/execute y /api/v1/usage-pulse. Es una muestra de solicitudes de
+esa carga, no una lista exhaustiva de superficies accesibles ni de WebSocket.
+
+NO ACCESS ASSIGNED concuerda con el código actual de Home:
+auth_control.refreshAccessCache exige erp_token de URL y la acción REST
+get_my_page_access, ON_PAGE_LOAD, envía ese token a /stage-permissions.
+El diagnóstico HttpOnly no está integrado en esa acción. No reintroducir token
+en URL ni enviar la cookie del empleado como parámetro de Appsmith.
+
+Rutas alternativas identificadas en controladores oficiales v1.97:
+- GET /api/v1/pages/{pageId}/view
+- GET /api/v1/pages/view/application/{applicationId}
+- GET /api/v1/pages (applicationId, pageId y mode)
+- GET /api/v1/actions/view?applicationId=...
+- GET /api/v1/collections/actions/view?applicationId=...
+- El DTO consolidado también referencia temas y bibliotecas por aplicación.
+Su accesibilidad anónima en esta imagen NO se ha probado: STAGE continúa privada.
+
+Conclusión acotada: proteger solo /app/urisa-erp-sso-stage/ y los tres endpoints
+vistos en Home no certifica aislamiento. Una regla por prefijo de página no
+puede autorizar el actionId contenido en el multipart real de actions/execute.
+Bloquear globalmente esa API compartida afectaría otras aplicaciones; no hacerlo.
+
+Próximo cambio funcional necesario: intermediario de solicitudes reales, con
+validación estricta de ruta, parámetros, formato multipart, IDs registrados y
+sesión/permisos de servidor. Debe cubrir acceso ERP y entrada alternativa por
+Dashboard, conservar el acceso administrativo y denegar operaciones en cuarentena.
+Antes de activar esa protección en rutas compartidas falta demostrar su
+compatibilidad con tráfico legítimo de las aplicaciones existentes. El endpoint
+de diagnóstico actual no sirve para ese cometido y no debe conectarse a auth_request.
+
+No hay aprobación de prueba pública, de cambio del destino productivo del portal
+ni de cierre administrativo global de Dashboard. No se descarta la arquitectura
+con un intermediario implementado; se rechaza certificarla con el proxy actual.
