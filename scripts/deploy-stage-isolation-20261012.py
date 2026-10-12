@@ -68,19 +68,31 @@ def status(path, method='GET', cookie=None, origin=None):
         return 0
 
 def ready(cwd, probe):
+    last = {}
     for _ in range(20):
         try:
-            stage(processes(), cwd)
-            if status('/urisa-auth/stage-context') == 401 and status('/urisa-auth/check-rolling') == 401:
-                expected = 401 if probe else 404
-                if status('/urisa-auth/stage-isolation-check', 'POST') == expected:
-                    sockets = command(['ss', '-ltnp', 'sport = :3009'], 'LISTENER_READ_FAIL')
-                    pids = set(re.findall(r'pid=(\d+)', sockets))
-                    if pids and all(os.readlink('/proc/'+pid+'/cwd') == cwd for pid in pids):
-                        return True
-        except (RuntimeError, OSError):
-            pass
+            matches = [a for a in processes() if a.get('name') == NAME or a.get('pm_id') == ID]
+            last = {'pm2_identity': len(matches) == 1 and matches[0].get('name') == NAME and matches[0].get('pm_id') == ID}
+            if last['pm2_identity']:
+                e = matches[0]['pm2_env']
+                last.update(pm2_cwd=e.get('pm_cwd') == cwd,
+                            pm2_online=e.get('status') == 'online',
+                            pm2_script=e.get('pm_exec_path') == '/usr/bin/npm',
+                            pm2_mode=e.get('exec_mode') == 'fork_mode')
+            last['context_http'] = status('/urisa-auth/stage-context')
+            last['rolling_http'] = status('/urisa-auth/check-rolling')
+            last['probe_http'] = status('/urisa-auth/stage-isolation-check', 'POST')
+            sockets = command(['ss', '-ltnp', 'sport = :3009'], 'LISTENER_READ_FAIL')
+            pids = set(re.findall(r'pid=(\d+)', sockets))
+            last['listener_cwd'] = bool(pids) and all(os.readlink('/proc/'+pid+'/cwd') == cwd for pid in pids)
+            checks = ('pm2_identity', 'pm2_cwd', 'pm2_online', 'pm2_script', 'pm2_mode', 'listener_cwd')
+            if all(last.get(k) is True for k in checks) and last['context_http'] == 401 and last['rolling_http'] == 401 and last['probe_http'] == (401 if probe else 404):
+                return True
+        except (RuntimeError, OSError) as error:
+            last['inspection_error'] = type(error).__name__
         time.sleep(1)
+    # Only booleans, HTTP statuses and exception type; never environment or bodies.
+    print('HEALTH_FAIL_'+('CANDIDATE' if probe else 'ROLLBACK')+': '+json.dumps(last), flush=True)
     return False
 
 def config(saved, cwd, probe):
@@ -92,6 +104,11 @@ def config(saved, cwd, probe):
             variables[k] = v
     variables['URISA_ERP_FULL_STAGE'] = '1'
     variables['URISA_STAGE_ISOLATION_PROBE'] = '1' if probe else '0'
+    # PM2's ecosystem schema drops top-level pm_cwd on restart. God.executeApp
+    # merges env into pm2_env before spawning. Carry the fixed, trusted target
+    # through that merge; apply the same mechanism in rollback.
+    variables['pm_cwd'] = cwd
+    variables['PWD'] = cwd
     # Only the working directory and probe flag change. Preserve args and interpreter.
     app = {'name': NAME, 'script': e['pm_exec_path'], 'pm_exec_path': e['pm_exec_path'],
            'cwd': cwd, 'pm_cwd': cwd, 'exec_mode': 'fork',
