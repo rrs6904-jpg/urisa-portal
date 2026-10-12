@@ -1,7 +1,56 @@
 # Fase C: evidencia y prueba de decisiones — 12 octubre 2026
 
-Estado: NO CERTIFICADO. STAGE privada. No se cambió visibilidad, Nginx, PM2,
-producción ni la base de datos. Este paquete no es un proxy de seguridad terminado.
+Estado actualizado 12 octubre 2026, 10:25 America/Mexico_City: NO CERTIFICADO.
+STAGE sigue privada según el procedimiento; no se solicitó hacerla pública.
+Se desplegó el diagnóstico en el proceso PM2 11 existente y se agregaron dos
+rutas de diagnóstico en Nginx. No se cambiaron Dashboard, el destino del portal,
+las rutas generales de Appsmith ni la base de datos. Este paquete no es un proxy
+de seguridad terminado.
+
+## Resultado integrado recibido del administrador
+
+Captura de pantalla de la página de prueba: 6/6 PASS con sesión real.
+
+| Caso | HTTP diagnóstico | Resultado |
+|---|---|---|
+| Home | 200 | PERIMETER_NOT_CERTIFIED; permiso de recurso verdadero |
+| Operations | 200 | PERIMETER_NOT_CERTIFIED; permiso de recurso verdadero |
+| SQL en cuarentena | 200 | ACTION_QUARANTINED |
+| Modo editor | 200 | EDITOR_MODE_FORBIDDEN |
+| Página ajena sintética | 200 | RESOURCE_NOT_IN_STAGE |
+| Permisos falsificados en JSON | 400 | Solicitud rechazada |
+
+La página exige diagnostic_only=true y execution_allowed=false en los cinco
+casos con HTTP 200. Ninguna fila acredita bloqueo del endpoint real de Appsmith.
+Página ajena usa un ID inexistente: no prueba un usuario real sin permiso para
+otra página existente. SQL en cuarentena clasifica un ID: no ejecuta el SQL.
+
+Evidencia adicional reportada desde SSH: CUTOVER_LOCAL_PASS y PROBE_HTTPS_PASS;
+sin cookie 401, cookie malformada 401, origen ajeno 403. El rechazo de una sesión
+revocada no se volvió a comprobar contra este nuevo endpoint.
+
+Proceso activo: PM2 11 urisa-erp-stage-context-canary, puerto 3009,
+/var/www/portal-erp-stage-isolation-20261012, build del commit af4b9c10c7369374d81073bf810eaf2e69767bf9.
+El despliegue no se persistió con pm2 save.
+
+Rutas nuevas:
+- /urisa-auth/full/stage-isolation-check: POST autenticado, diagnóstico JSON.
+- /urisa-auth/full/stage-isolation-test: página estática sin datos personales,
+  script autorizado por hash CSP y connect-src self; seis comprobaciones al pulsar.
+La CSP default-src none de stage-context permanece intacta. Ejecutar fetch desde
+su consola fue una instrucción incorrecta; el navegador lo bloqueó antes de la API.
+
+Incidentes resueltos: reinicio PM2 conservaba cwd anterior (corregido mediante
+env.pm_cwd y PWD, con rollback); primera comprobación HTTPS devolvió 404 justo
+tras reload (se corrigió espera acotada y marcador de ruta; luego pasó). No se
+atribuye el primer 404 a un fallo de autenticación.
+
+Respaldos y reversión (aplicar en orden inverso si se retira todo el ensayo):
+1. /root/urisa-sso-backups/stage-3009-20261012T154043Z/install-stage-test-page-20261012.py --rollback
+2. /root/urisa-sso-backups/stage-3009-20261012T154043Z/expose-stage-isolation-probe-v2.py --rollback
+3. /root/urisa-sso-backups/stage-3009-20261012T154043Z/deploy-stage-isolation-cwd-fix.py --rollback
+Ejecutar como root. Los rollback de Nginx comprueban hash para no pisar cambios
+posteriores y ejecutan nginx -t antes de reload. No ejecutar fuera de orden.
 
 ## Evidencia observada
 
@@ -63,11 +112,12 @@ No pasa tráfico a Appsmith ni a consultas PostgreSQL.
 
 32 pruebas locales de política con Node 24.19.0 pasaron:
 `node --test tests/stage-isolation-policy.test.mjs`.
-No se ejecutó aún build completo Next.js ni la prueba HTTP integrada con cookies.
+Build completo Next.js: BUILD_PASS reportado en VPS. Prueba HTTP con sesión real:
+6/6 PASS reportado en la captura anterior.
 Los casos de sesión ausente/revocada son entradas sintéticas sin grants; no son
 una nueva certificación de la revocación real en Supabase.
 
-## Próximo paso y rollback
+## Preparación original completada
 
 Identificar PID, directorio y commit que atienden 3009 mediante ss y /proc, sin
 imprimir variables de entorno ni secretos. Preparar build separado y conservar
@@ -96,3 +146,12 @@ cuarentena nunca ejecutable; errores RPC cierran acceso. STAGE permanece privada
    prueba pública temporal con reversión inmediata si cualquier control falla.
 
 No declarar viable/certificado el runtime basándose en los tests de este paquete.
+
+## Siguiente evidencia necesaria para el proxy real
+
+Inventario de rutas de una carga real del runtime Home STAGE privado mediante
+Dashboard, con sesión administrativa existente. El inventario inicial de logs
+mezclaba dominios, escáneres y aplicaciones; no permite enumerar las dependencias
+del runtime STAGE. Recoger únicamente pathname e iniciador, sin query strings,
+cookies, cabeceras ni respuestas personales. No ejecutar acciones de Operations.
+Esto define las rutas a interceptar: no convierte el diagnóstico en autorización.
